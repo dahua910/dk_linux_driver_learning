@@ -13,6 +13,7 @@
 
 #define GLOBALMEM_SIZE 0x1000
 #define GLOBALMEM_MAJOR 250
+#define MEM_CLEAR 0x0
 
 struct globalmem_dev
 {
@@ -20,16 +21,27 @@ struct globalmem_dev
 	unsigned char mem[GLOBALMEM_SIZE];
 };
 
+int globalmem_init(void);
+int globalmem_exit(void);
+static ssize_t globalmem_read(struct file *filp,char __user *buf,size_t count,loff_t *ppos);
+static ssize_t globalmem_write(struct file *filp,const char __user *buf,size_t count,loff_t *ppos);
+static loff_t globalmen_llseek(struct file *filp, loff_t offset, int orig);
+static int globalmem_ioctl(struct inode *inodep, struct file *filp,unsigned int cmd, unsigned long arg);
+static void globalmem_setup_cdev();
+
+
 struct globalmem_dev dk_globalmem_cdev;
+
 static const struct file_operations globalmem_fops ={
 	.owner = THIS_MODULE,
 	.llseek = globalmen_llseek,
 	.read = globalmem_read,
 	.write = globalmem_write,
-	.iotl = globalmem_ioctl,
+	.ioctl = globalmem_ioctl,
 };
 
 //struct globalmem_dev dev;
+
 
 int globalmem_init(void)
 {
@@ -49,20 +61,20 @@ int globalmem_init(void)
 
 
 static void globalmem_setup_cdev()
-{	
+{
 	int err;
 	int devno=MKDEV(GLOBALMEM_MAJOR,0);
 	cdev_init(&dk_globalmem_cdev.cdev, &globalmem_fops);
 	dk_globalmem_cdev.cdev.owner = THIS_MODULE;
-	
-	err=cdev_add(&globalmem_cdev.cdev,devno,1);
+
+	err=cdev_add(&dk_globalmem_cdev.cdev,devno,1);
 	if(err){printk(KERN_NOTICE "erro %d adding dk_globalmem",err);}
 }
 
 
 int globalmem_exit(void)
 {
-	cdev_del(&dev.cdev);
+	cdev_del(&dk_globalmem_cdev.cdev);
 	unregister_chrdev_region(MKDEV(GLOBALMEM_MAJOR,0),1);
 }
 
@@ -72,6 +84,69 @@ static ssize_t globalmem_read(struct file *filp,char __user *buf,size_t count,lo
 	int ret =0;
 	if(p >= GLOBALMEM_SIZE){return 0;}
 	if(count > GLOBALMEM_SIZE-p){count = GLOBALMEM_SIZE-p;}
+	if(copy_to_user(buf,(void*)(dk_globalmem_cdev.mem + p),count)){ret = - EFAULT;}
+	else{
+	    *ppos += count;
+	    ret = count;
+	    printk(KERN_INFO "read %d bytes from %d\n",count, p);}
+    return ret;
+}
+
+static ssize_t globalmem_write(struct file *filp,const char __user *buf,size_t count,loff_t *ppos)
+{
+    unsigned long p = *ppos;
+	int ret =0;
+	if(p >= GLOBALMEM_SIZE){return 0;}
+	if(count > GLOBALMEM_SIZE-p){count = GLOBALMEM_SIZE-p;}
+	if(copy_from_user((dk_globalmem_cdev.mem + p),buf,count)){ret = - EFAULT;}
+	else{
+	    *ppos += count;
+	    ret = count;
+	    printk(KERN_INFO "write %d bytes from %d\n",count, p);}
+    return ret;
+}
+
+
+static loff_t globalmen_llseek(struct file *filp, loff_t offset, int orig)
+{
+    loff_t ret;
+    switch(orig){
+    case 0:
+        if(offset < 0){
+            ret = -EINVAL;
+            break;}
+        if((unsigned int)offset > GLOBALMEM_SIZE){
+            ret = -EINVAL;
+            break;}
+        filp->f_pos = (unsigned int)offset;
+        ret = filp->f_pos;
+        break;
+
+    case 1:
+        if((filp->f_pos + offset)>GLOBALMEM_SIZE){
+            ret = -EINVAL;
+            break;}
+        filp->f_pos += offset;
+        ret = filp->f_pos;
+        break;
+    default:
+        ret = -EINVAL;}
+
+    return ret;
+}
+
+static int globalmem_ioctl(struct inode *inodep, struct file *filp,unsigned int cmd, unsigned long arg)
+{
+    switch(cmd){
+    case MEM_CLEAR:
+        memset(dk_globalmem_cdev.mem, 0, GLOBALMEM_SIZE);
+        printk(KERN_INFO "globalmem is set to all zero\n");
+        break;
+
+    default:
+        return -EINVAL;
+    }
+    return 0;
 }
 
 
