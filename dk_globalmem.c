@@ -15,19 +15,20 @@
 #define GLOBALMEM_MAJOR 250
 #define MEM_CLEAR 0x00
 
+/*globalmem device struct*/
 struct globalmem_dev
 {
-	struct cdev cdev;
-	unsigned char mem[GLOBALMEM_SIZE];
+	struct cdev cdev;  /*char device struct*/
+	unsigned char mem[GLOBALMEM_SIZE];  /*global mem*/
 };
 
-int globalmem_init(void);
-int globalmem_exit(void);
-static ssize_t globalmem_read(struct file *filp,char __user *buf,size_t count,loff_t *ppos);
-static ssize_t globalmem_write(struct file *filp,const char __user *buf,size_t count,loff_t *ppos);
-static loff_t globalmen_llseek(struct file *filp, loff_t offset, int orig);
-static int globalmem_ioctl(struct inode *inodep, struct file *filp,unsigned int cmd, unsigned long arg);
-static void globalmem_setup_cdev();
+int globalmem_init(void);   /*init function for globalmen device*/
+int globalmem_exit(void);   /*exit function for globalmen device*/
+static ssize_t globalmem_read(struct file *filp,char __user *buf,size_t count,loff_t *ppos); /*read function*/
+static ssize_t globalmem_write(struct file *filp,const char __user *buf,size_t count,loff_t *ppos); /*write function*/
+static loff_t globalmen_llseek(struct file *filp, loff_t offset, int orig); /*llseek function,repositions the offset of the file*/
+static int globalmem_ioctl(struct inode *inodep, struct file *filp,unsigned int cmd, unsigned long arg);    /*ioctl function, MEM clear only*/
+static void globalmem_setup_cdev(); /*init and add cdev */
 
 
 struct globalmem_dev dk_globalmem_cdev;
@@ -38,6 +39,8 @@ static const struct file_operations globalmem_fops ={
 	.read = globalmem_read,
 	.write = globalmem_write,
 	.ioctl = globalmem_ioctl,
+	.open = globalmem_open,
+	.release = globalmem_release,
 };
 
 //struct globalmem_dev dev;
