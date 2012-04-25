@@ -13,7 +13,7 @@
 
 #define GLOBALMEM_SIZE 0x1000
 #define GLOBALMEM_MAJOR 250
-#define MEM_CLEAR 0x0
+#define MEM_CLEAR 0x00
 
 struct globalmem_dev
 {
